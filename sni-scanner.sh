@@ -22,6 +22,10 @@ resolve_domain() {
   dig +short "$1" | grep -Eo '([0-9]{1,3}\.){3}[0-9]{1,3}'
 }
 
+echo
+echo "=== Checking targets and ports ==="
+echo
+
 while IFS= read -r target || [ -n "$target" ]; do
   [[ -z "$target" ]] && continue
 
@@ -34,6 +38,7 @@ while IFS= read -r target || [ -n "$target" ]; do
 
   # Resolve failed
   if [ ${#ips[@]} -eq 0 ]; then
+    echo "[RESOLVE FAIL] $target"
     resolve_fail_list+=("$target")
     continue
   fi
@@ -51,28 +56,50 @@ while IFS= read -r target || [ -n "$target" ]; do
       fi
     done
 
+    line="$target -> $ip ->$result"
+
     if $open_found; then
-      ok_list+=("$target -> $ip ->$result")
+      echo "[OK]   $line"
+      ok_list+=("$line")
     else
-      fail_list+=("$target -> $ip ->$result")
+      echo "[FAIL] $line"
+      fail_list+=("$line")
     fi
   done
 
 done < "$file"
 
-echo "=== OK (at least one open port) ==="
-for item in "${ok_list[@]}"; do
-  echo "$item"
-done
+if [ ${#ok_list[@]} -eq 0 ] && [ ${#fail_list[@]} -eq 0 ] && [ ${#resolve_fail_list[@]} -eq 0 ]; then
+  echo "No results found."
+  echo
+  exit 0
+fi
+
+if [ ${#ok_list[@]} -gt 0 ]; then
+  echo
+  echo "=== OK (at least one open port) ==="
+  echo
+  for item in "${ok_list[@]}"; do
+    echo "$item"
+  done
+fi
+
+if [ ${#fail_list[@]} -gt 0 ]; then
+  echo
+  echo "=== FAIL (all ports closed) ==="
+  echo
+  for item in "${fail_list[@]}"; do
+    echo "$item"
+  done
+fi
+
+if [ ${#resolve_fail_list[@]} -gt 0 ]; then
+  echo
+  echo "=== RESOLVE FAILED ==="
+  echo
+  for item in "${resolve_fail_list[@]}"; do
+    echo "$item"
+  done
+fi
 
 echo
-echo "=== FAIL (all ports closed) ==="
-for item in "${fail_list[@]}"; do
-  echo "$item"
-done
-
-echo
-echo "=== RESOLVE FAILED ==="
-for item in "${resolve_fail_list[@]}"; do
-  echo "$item"
-done
