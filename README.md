@@ -32,16 +32,22 @@ The tool provides a clear output indicating which ports are open or closed, help
 
 1. Clone the repository:
 
-   git clone https://github.com/seramo/sni-scanner.git
+    ```bash
+    git clone https://github.com/seramo/sni-scanner.git
+   ```
 
 2. Navigate to the project directory:
 
-   cd sni-scanner
-
+    ```bash
+    cd sni-scanner
+    ```
+   
 3. Make the script executable:
 
-   chmod +x scanner.sh
-
+    ```bash
+    chmod +x scanner.sh
+    ```
+   
 ## Usage
 
 ### Step 1: Prepare Input File
