@@ -48,9 +48,11 @@ The tool provides a clear output indicating which ports are open or closed, help
 
 Create a file named targets.txt:
 
+```txt
 104.19.229.21
 example.com
 google.com
+```
 
 ### Step 2: Run the Scanner
 
@@ -66,6 +68,7 @@ Or specify a custom file:
 
 ## Output Example
 
+```txt
 === OK (at least one open port) ===
 example.com -> 104.19.229.21 -> 443✔ 2053✔ 2083✖ 2087✖ 2096✖ 8443✔
 
@@ -74,6 +77,7 @@ example.com -> 104.19.229.21 -> 443✔ 2053✔ 2083✖ 2087✖ 2096✖ 8443✔
 
 === RESOLVE FAILED ===
 bad-domain.test
+```
 
 ## Notes
 
