@@ -63,13 +63,13 @@ google.com
 ### Step 2: Run the Scanner
 
 ```bash
-./scanner.sh
+./sni-scanner.sh
 ```
 
 Or specify a custom file:
 
 ```bash
-./scanner.sh my-targets.txt
+./sni-scanner.sh my-targets.txt
 ```
 
 ## Scanned Ports
