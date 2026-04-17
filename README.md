@@ -62,11 +62,15 @@ google.com
 
 ### Step 2: Run the Scanner
 
-./scanner.sh
+    ```bash
+    ./scanner.sh
+    ```
 
 Or specify a custom file:
 
-./scanner.sh my-targets.txt
+    ```bash
+    ./scanner.sh my-targets.txt
+    ```
 
 ## Scanned Ports
 
