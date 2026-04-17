@@ -45,7 +45,7 @@ The tool provides a clear output indicating which ports are open or closed, help
 3. Make the script executable:
 
     ```bash
-    chmod +x scanner.sh
+    chmod +x sni-scanner.sh
     ```
    
 ## Usage
