@@ -19,7 +19,10 @@ resolve_fail_list=()
 
 # Resolve domain → IP
 resolve_domain() {
-  dig +short "$1" | grep -Eo '([0-9]{1,3}\.){3}[0-9]{1,3}'
+  dig +short "$1" \
+  | grep -Eo '([0-9]{1,3}\.){3}[0-9]{1,3}' \
+  | grep -vE '^(127\.|10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|0\.|255\.)' \
+  | sort -u
 }
 
 echo
