@@ -1,0 +1,6 @@
+services:
+  sni-scanner:
+    build: .
+    container_name: sni-scanner
+    stdin_open: true
+    tty: true
