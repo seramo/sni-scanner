@@ -4,19 +4,24 @@ A lightweight Bash tool to scan common CDN ports on a list of IPs and domains.
 
 ## Description
 
-The **SNI Scanner** is a simple Bash-based tool designed to check common HTTPS/CDN ports on multiple IP addresses or domains. It supports mixed input (IPs and domains), automatically resolves domains to IP addresses, and scans a predefined list of ports commonly used by CDN providers like Cloudflare.
+The **SNI Scanner** is a simple Bash-based tool designed to check common HTTPS/CDN ports on multiple IP addresses or domains. It supports mixed input (IPs and domains), automatically resolves domains to IP addresses, and scans a list of ports commonly used by CDN providers like Cloudflare.
 
-The tool provides a clear output indicating which ports are open or closed, helping users quickly identify reachable endpoints.
+The tool provides a clear output indicating which ports are open or closed, supports retries, concurrent scanning, logging, and generates a final categorized summary report.
 
 ## Features
 
 - IP & Domain Support: Accepts both IP addresses and domain names as input
 - Automatic DNS Resolution: Resolves domains to one or more IP addresses
-- CDN Port Scanning: Scans common HTTPS/CDN ports
+- Custom Port Scanning: Supports custom ports from CLI arguments
+- Retry Support: Retries closed ports multiple times
+- Concurrent Scanning: Faster scans using background jobs
+- Logging System: Saves full activity and summary into a log file
 - Detailed Output:
     - Shows open ports (✔)
     - Shows closed ports (✖)
     - Separates successful and failed targets
+    - Detects unresolved domains
+    - Filters internal/blocked IPs (10.x.x.x)
 - Lightweight & Fast: Requires only bash, nc, and dig
 
 ## Getting Started
@@ -34,25 +39,25 @@ The tool provides a clear output indicating which ports are open or closed, help
 
     ```bash
     git clone https://github.com/seramo/sni-scanner.git
-   ```
+    ```
 
 2. Navigate to the project directory:
 
     ```bash
     cd sni-scanner
     ```
-   
+
 3. Make the script executable:
 
     ```bash
     chmod +x sni-scanner.sh
     ```
-   
+
 ## Usage
 
 ### Step 1: Prepare Input File
 
-Create a file named targets.txt:
+Create a file named `targets.txt`:
 
 ```txt
 104.19.229.21
@@ -62,32 +67,49 @@ google.com
 
 ### Step 2: Run the Scanner
 
+Default usage:
+
 ```bash
 ./sni-scanner.sh
 ```
 
-Or specify a custom file:
+Custom example:
 
 ```bash
-./sni-scanner.sh my-targets.txt
+./sni-scanner.sh -f my-targets.txt -p 80,443,8443 -t 3 -r 2 -l result.log
 ```
 
-## Scanned Ports
+## CLI Options
 
-443, 2053, 2083, 2087, 2096, 8443
+| Option | Default | Description | Example |
+|---|---|---|---|
+| `-f` | `targets.txt` | Input file containing domains/IPs | `-f my-targets.txt` |
+| `-p` | `443,2053,2083,2087,2096,8443` | Comma-separated ports to scan | `-p 80,443,8443` |
+| `-t` | `5` | Connection timeout in seconds | `-t 3` |
+| `-r` | `3` | Retry count for closed ports | `-r 2` |
+| `-l` | `log.txt` | Output log file | `-l result.log` |
+| `-h` | - | Show help menu | `-h` |
 
 ## Output Example
 
 ```txt
-=== OK (at least one open port) ===
-example.com -> 104.19.229.21 -> 443✔ 2053✔ 2083✖ 2087✖ 2096✖ 8443✔
+[OK] example.com -> 104.19.229.21 -> 443✔ 2053✔ 2083✖ 2087✖ 2096✖ 8443✔
 
-=== FAIL (all ports closed) ===
-8.8.8.8 -> 8.8.8.8 -> 443✖ 2053✖ 2083✖ 2087✖ 2096✖ 8443✖
+[FAIL] 8.8.8.8 -> 8.8.8.8 -> 443✖ 2053✖ 2083✖ 2087✖ 2096✖ 8443✖
 
-=== RESOLVE FAILED ===
-bad-domain.test
+[ERROR] bad-domain.test (Could not resolve)
+
+[FILTERED] internal.test -> 10.0.0.1 (Blocked/Internal IP)
 ```
+
+## Final Summary
+
+At the end of the scan, the tool generates a categorized summary including:
+
+- OK targets
+- Failed targets
+- Resolve failed targets
+- Filtered/internal IPs
 
 ## Notes
 
