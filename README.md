@@ -6,7 +6,7 @@ A lightweight Bash tool to scan common CDN ports on a list of IPs and domains.
 
 The **SNI Scanner** is a simple Bash-based tool designed to check common HTTPS/CDN ports on multiple IP addresses or domains. It supports mixed input (IPs and domains), automatically resolves domains to IP addresses, and scans a list of ports commonly used by CDN providers like Cloudflare.
 
-The tool provides a clear output indicating which ports are open or closed, supports retries, concurrent scanning, logging, and generates a final categorized summary report.
+The tool provides a clear output indicating which ports are open or closed, supports retries, concurrent scanning, logging, optional IP verification through Cloudflare, and generates a final categorized summary report.
 
 ## Features
 
@@ -22,6 +22,10 @@ The tool provides a clear output indicating which ports are open or closed, supp
     - Separates successful and failed targets
     - Detects unresolved domains
     - Filters internal/blocked IPs (10.x.x.x)
+- Optional IP Verification:
+    - Automatically detects your public IP
+    - Or allows manual IP input
+    - Verifies the IP seen by Cloudflare using `/cdn-cgi/trace`
 - Lightweight & Fast: Requires only bash, nc, and dig
 
 ## Getting Started
@@ -32,6 +36,7 @@ The tool provides a clear output indicating which ports are open or closed, supp
 - bash
 - nc (netcat)
 - dig (DNS utilities)
+- curl
 
 ### Installation
 
@@ -79,6 +84,18 @@ Custom example:
 ./sni-scanner.sh -f my-targets.txt -p 80,443,8443 -t 3 -r 2 -l result.log
 ```
 
+IP verification (auto detect):
+
+```bash
+./sni-scanner.sh -ip
+```
+
+IP verification (manual IP):
+
+```bash
+./sni-scanner.sh -ip 1.2.3.4
+```
+
 ## CLI Options
 
 | Option | Default | Description | Example |
@@ -88,12 +105,13 @@ Custom example:
 | `-t` | `5` | Connection timeout in seconds | `-t 3` |
 | `-r` | `3` | Retry count for closed ports | `-r 2` |
 | `-l` | `log.txt` | Output log file | `-l result.log` |
+| `-ip` | - | Enable IP verification (optional manual IP) | `-ip` or `-ip 1.2.3.4` |
 | `-h` | - | Show help menu | `-h` |
 
 ## Output Example
 
 ```txt
-[OK] example.com -> 104.19.229.21 -> 443✔ 2053✔ 2083✖ 2087✖ 2096✖ 8443✔
+[OK] example.com -> 104.19.229.21 -> 443✔ 2053✔ 2083✖ 2087✖ 2096✖ 8443✔ IP✔
 
 [FAIL] 8.8.8.8 -> 8.8.8.8 -> 443✖ 2053✖ 2083✖ 2087✖ 2096✖ 8443✖
 
@@ -107,14 +125,16 @@ Custom example:
 At the end of the scan, the tool generates a categorized summary including:
 
 - OK targets
+- IP verified targets
 - Failed targets
 - Resolve failed targets
 - Filtered/internal IPs
 
 ## Notes
 
-- This tool performs basic TCP port checks only
-- It does NOT perform real SNI spoofing or TLS validation
+- This tool performs TCP port checks and optional Cloudflare IP verification
+- IP verification uses Cloudflare `/cdn-cgi/trace`
+- It does NOT perform real TLS fingerprint spoofing
 - Results may vary depending on CDN behavior and network restrictions
 
 ## Contribution

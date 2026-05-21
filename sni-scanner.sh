@@ -8,25 +8,60 @@ RETRIES=3
 LOG_FILE="log.txt"
 CONCURRENCY=20
 
+ENABLE_IP_CHECK=false
+MANUAL_IP=""
+USER_IP_API="http://chabokan.net/ip/"
+
 usage() {
-    echo "Usage: $0 [-f file] [-p ports] [-t timeout] [-r retries] [-l log_file]"
-    echo "  -f  Input file containing domains/IPs (default: targets.txt)"
-    echo "  -p  Comma-separated ports to scan (default: 443,2053,2083,2087,2096,8443)"
-    echo "  -t  Timeout in seconds for each connection (default: 5)"
-    echo "  -r  Number of retries for closed ports (default: 3)"
-    echo "  -l  Output log file (default: log.txt)"
+    echo "Usage: $0 [-f file] [-p ports] [-t timeout] [-r retries] [-l log_file] [-ip [IP]]"
+    echo "  -f    Input file containing domains/IPs"
+    echo "  -p    Comma-separated ports"
+    echo "  -t    Timeout in seconds"
+    echo "  -r    Number of retries"
+    echo "  -l    Output log file"
+    echo "  -ip   Enable IP verification (optional manual IP)"
     exit 1
 }
 
 # Parse CLI arguments
-while getopts "f:p:t:r:l:h" opt; do
-    case $opt in
-        f) INPUT_FILE="$OPTARG" ;;
-        p) PORTS="$OPTARG" ;;
-        t) TIMEOUT="$OPTARG" ;;
-        r) RETRIES="$OPTARG" ;;
-        l) LOG_FILE="$OPTARG" ;;
-        h|*) usage ;;
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -f)
+            INPUT_FILE="$2"
+            shift 2
+            ;;
+        -p)
+            PORTS="$2"
+            shift 2
+            ;;
+        -t)
+            TIMEOUT="$2"
+            shift 2
+            ;;
+        -r)
+            RETRIES="$2"
+            shift 2
+            ;;
+        -l)
+            LOG_FILE="$2"
+            shift 2
+            ;;
+        -ip)
+            ENABLE_IP_CHECK=true
+
+            if [[ -n "$2" && ! "$2" =~ ^- ]]; then
+                MANUAL_IP="$2"
+                shift 2
+            else
+                shift
+            fi
+            ;;
+        -h|--help)
+            usage
+            ;;
+        *)
+            usage
+            ;;
     esac
 done
 
@@ -39,6 +74,69 @@ IFS=',' read -r -a PORT_ARRAY <<< "$PORTS"
 
 # Initialize/Clear log file
 > "$LOG_FILE"
+
+get_user_public_ip() {
+    local ip=""
+
+    for i in {1..3}; do
+        ip=$(curl -s --connect-timeout 10 --max-time 20 "$USER_IP_API" 2>/dev/null \
+            | grep -oE '"ip"[[:space:]]*:[[:space:]]*"[^"]+"' \
+            | cut -d'"' -f4)
+
+        if [ -n "$ip" ]; then
+            echo "$ip"
+            return
+        fi
+
+        sleep 1
+    done
+}
+
+USER_PUBLIC_IP=""
+
+if [ "$ENABLE_IP_CHECK" = true ]; then
+
+    if [ -n "$MANUAL_IP" ]; then
+        USER_PUBLIC_IP="$MANUAL_IP"
+        echo "[INFO] Using Manual IP: $USER_PUBLIC_IP" | tee -a "$LOG_FILE"
+    else
+        USER_PUBLIC_IP=$(get_user_public_ip)
+
+        if [ -n "$USER_PUBLIC_IP" ]; then
+            echo "[INFO] Auto Detected IP: $USER_PUBLIC_IP" | tee -a "$LOG_FILE"
+        fi
+    fi
+
+    if [ -z "$USER_PUBLIC_IP" ]; then
+        echo "[WARNING] Could not detect your public IP" | tee -a "$LOG_FILE"
+    fi
+fi
+
+check_ip() {
+    local domain=$1
+    local ip=$2
+
+    local detected_ip
+
+    detected_ip=$(curl -sk \
+        --connect-timeout 10 \
+        --max-time 20 \
+        --resolve "${domain}:443:${ip}" \
+        "https://${domain}/cdn-cgi/trace" 2>/dev/null \
+        | grep '^ip=' \
+        | cut -d'=' -f2)
+
+    if [ -z "$detected_ip" ]; then
+        echo " IP✖"
+        return
+    fi
+
+    if [ "$detected_ip" = "$USER_PUBLIC_IP" ]; then
+        echo " IP✔"
+    else
+        echo " IP✖($detected_ip)"
+    fi
+}
 
 process_target() {
     local target=$1
@@ -59,7 +157,7 @@ process_target() {
     fi
 
     for ip in "${ips[@]}"; do
-        # Filtering check for IPs starting with 10.
+
         if [[ $ip =~ ^10\. ]]; then
             domain_buffer+="[FILTERED] $target -> $ip (Blocked/Internal IP)\n"
             continue
@@ -70,6 +168,7 @@ process_target() {
 
         for port in "${PORT_ARRAY[@]}"; do
             local port_status="closed"
+
             for ((i=1; i<=RETRIES; i++)); do
                 if nc -z -w "$TIMEOUT" "$ip" "$port" 2>/dev/null; then
                     port_status="open"
@@ -86,13 +185,19 @@ process_target() {
         done
 
         if [ $open_count -gt 0 ]; then
-            domain_buffer+="[OK] $result_str\n"
+
+            if [ "$ENABLE_IP_CHECK" = true ] && [ -n "$USER_PUBLIC_IP" ]; then
+                ip_result=$(check_ip "$target" "$ip")
+                domain_buffer+="[OK] $result_str$ip_result\n"
+            else
+                domain_buffer+="[OK] $result_str\n"
+            fi
+
         else
             domain_buffer+="[FAIL] $result_str\n"
         fi
     done
 
-    # Print the entire domain block to keep Multi-IPs together
     printf "$domain_buffer" | tee -a "$LOG_FILE"
 }
 
@@ -107,7 +212,9 @@ process_target() {
 # Process loop
 while IFS= read -r line || [[ -n "$line" ]]; do
     [[ -z "$line" || "$line" =~ ^# ]] && continue
+
     target=$(echo "$line" | tr -d '\r' | xargs)
+
     [ -z "$target" ] && continue
 
     process_target "$target" &
@@ -125,7 +232,7 @@ wait
     echo "==================================================="
     echo "                   FINAL SUMMARY                   "
     echo "==================================================="
-    echo "" # Space after title
+    echo ""
 
     OK_COUNT=$(grep -c "^\[OK\]" "$LOG_FILE" || true)
     FAIL_COUNT=$(grep -c "^\[FAIL\]" "$LOG_FILE" || true)
